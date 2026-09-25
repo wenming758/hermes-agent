@@ -1,0 +1,41 @@
+name: Sync upstream and Gitee
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Sync from upstream to fork
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Save our workflow file before resetting
+          cp .github/workflows/sync-upstream-gitee.yml /tmp/sync-upstream-gitee.yml
+          # Add upstream and fetch only main branch
+          git remote add upstream https://github.com/NousResearch/hermes-agent.git
+          git fetch upstream main
+          # Reset to upstream main
+          git checkout -B main upstream/main
+          # Restore the workflow file
+          mkdir -p .github/workflows
+          cp /tmp/sync-upstream-gitee.yml .github/workflows/sync-upstream-gitee.yml
+          git add .github/workflows/sync-upstream-gitee.yml
+          git commit -m "Preserve sync workflow" || echo "No changes to commit"
+          git push --force origin main
+
+      - name: Mirror to Gitee
+        run: |
+          git remote add gitee "https://${{ secrets.GITEE_USERNAME }}:${{ secrets.GITEE_PASSWORD }}@gitee.com/${{ secrets.GITEE_USERNAME }}/hermes-agent.git"
+          git push --force gitee main
